@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +16,7 @@ type brokerTenant struct {
 }
 
 // BrokerTenants contains pinot tenants
-type BrokerTenants map[string][]*httputil.ReverseProxy
+type BrokerTenants map[string][]string
 
 var tenants BrokerTenants = nil
 
@@ -37,22 +35,12 @@ func buildTenantsFromController(pinotControllerURL string) {
 		log.WithError(err).Warn("Failed to refresh tenants")
 		return
 	}
-	firstFetch := tenants == nil
 	tenants = BrokerTenants{}
 	for key, elements := range parsedBody {
-		tenants[key] = make([]*httputil.ReverseProxy, len(elements))
+		tenants[key] = make([]string, len(elements))
 		for index, tenant := range parsedBody[key] {
-			tenantURLString := "http://" + strings.TrimPrefix(tenant.Host, "Broker_") + ":" + strconv.Itoa(tenant.Port)
-			tenantURL, err := url.Parse(tenantURLString)
-			if err != nil {
-				log.WithError(err).Warn("Failed to build tenants proxys")
-				if firstFetch == true {
-					tenants = nil // reset only first time, if not, keep previous tenants
-				}
-				return
-			}
-			proxy := httputil.NewSingleHostReverseProxy(tenantURL)
-			tenants[key][index] = proxy
+			tenantURLString := strings.TrimPrefix(tenant.Host, "Broker_") + ":" + strconv.Itoa(tenant.Port)
+			tenants[key][index] = tenantURLString
 			log.Debug("Found " + tenantURLString + " for '" + key + "' tenant")
 		}
 	}

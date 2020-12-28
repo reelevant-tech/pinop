@@ -29,21 +29,37 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				return
 			}
 			brokerIndex := 0
-			proxy = tenants["DefaultTenant"][brokerIndex] // TODO: use tenant from request
-			proxy.Transport = &http.Transport{
-				Proxy: http.ProxyFromEnvironment,
-				Dial: func(network, addr string) (net.Conn, error) {
-					conn, err := (&net.Dialer{
-						Timeout:   30 * time.Second,
-						KeepAlive: 30 * time.Second,
-					}).Dial(network, addr)
-					if err != nil {
-						// TODO: retry
-						log.WithField("addr", addr).Warn("Failed to proxy request to broker, retrying")
-					}
-					return conn, err
+			brokerList := tenants["DefaultTenant"] // TODO: use tenant from body
+			proxy = &httputil.ReverseProxy{
+				Director: func(r *http.Request) {
+					r.URL.Scheme = "http"
+					r.URL.Host = "127.0.0.1" // placeholder, will be override
+					r.URL.Path = "/query/sql"
 				},
-				TLSHandshakeTimeout: 10 * time.Second,
+				Transport: &http.Transport{
+					Dial: func(network, _ string) (net.Conn, error) {
+						var conn net.Conn
+						var err error
+						for brokerIndex < len(brokerList) { // Retry with every urls we have if connection failed
+							addr := brokerList[brokerIndex]
+							conn, err = (&net.Dialer{
+								Timeout:   30 * time.Second,
+								KeepAlive: 30 * time.Second,
+							}).Dial(network, addr)
+							brokerIndex++
+							if err == nil {
+								break
+							}
+							logMsg := log.WithField("addr", addr).WithError(err)
+							if brokerIndex < len(brokerList) {
+								logMsg.Warn("Failed to proxy request to broker, retrying")
+							} else {
+								logMsg.Warn("Failed to proxy request to broker after retries, send 500")
+							}
+						}
+						return conn, err
+					},
+				},
 			}
 		}
 		proxy.ErrorHandler = proxyErrorHandler
