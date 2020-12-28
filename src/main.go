@@ -44,7 +44,7 @@ func main() {
 	// Start refreshing tenants
 	ScheduleTenantRefresh(
 		environment.Pinot.ControllerURL,
-		time.Duration(int64(environment.Pinot.TenantRefreshDelay)*1000000)) // ms to ns
+		time.Duration(int64(environment.Pinot.TenantRefreshDelay)*int64(time.Millisecond))) // ms to ns
 
 	// Start server
 	http.HandleFunc("/", RequestHandler(environment.Pinot.ControllerURL))
