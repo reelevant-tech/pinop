@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -10,6 +11,11 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
+
+type body struct {
+	Tenant string `json:"tenant"`
+	SQL    string `json:"sql"`
+}
 
 // RequestHandler handle HTTP requests
 func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.Request) {
@@ -28,8 +34,23 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				res.WriteHeader(503)
 				return
 			}
+			var body body
+			err := json.NewDecoder(req.Body).Decode(&body)
+			if err != nil {
+				res.WriteHeader(400)
+				return
+			}
+			if len(body.Tenant) == 0 || len(body.SQL) == 0 {
+				res.WriteHeader(400)
+				return
+			}
 			brokerIndex := 0
-			brokerList := tenants["DefaultTenant"] // TODO: use tenant from body
+			brokerList := tenants[body.Tenant]
+			if brokerList == nil {
+				log.WithField("tenant", body.Tenant).Error("Unable to find tenant for request")
+				res.WriteHeader(503)
+				return
+			}
 			proxy = &httputil.ReverseProxy{
 				Director: func(r *http.Request) {
 					r.URL.Scheme = "http"
