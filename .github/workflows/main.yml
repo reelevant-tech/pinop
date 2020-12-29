@@ -1,0 +1,21 @@
+name: Build
+on:
+  push:
+    branches: # avoid duplicate workflows on tag
+      - '**'
+
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: self-hosted
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_key: ${{ secrets.GCLOUD_SERVICE_KEY_BASE64 }}
+      - run: gcloud auth configure-docker
+      - uses: devmasx/cached-docker-build-push@v0.1.1
+        with:
+          image_name: eu.gcr.io/reelevant-1366/pinop
+          build_params: --build-arg COMMIT=${{ github.sha }}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"time"
@@ -16,6 +17,13 @@ type environment struct {
 		ControllerURL      string `env:"PINOT_CONTROLLER_URL,required=true"`
 		TenantRefreshDelay int    `env:"PINOT_TENANT_REFRESH_DELAY,default=60000"`
 	}
+	Version struct {
+		Commit string `env:"COMMIT"`
+	}
+}
+
+type healthResponse struct {
+	Commit string `json:"commit"`
 }
 
 func main() {
@@ -48,6 +56,12 @@ func main() {
 
 	// Start server
 	http.HandleFunc("/", RequestHandler(environment.Pinot.ControllerURL))
+	http.HandleFunc("/health", func(res http.ResponseWriter, req *http.Request) {
+		res.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(res).Encode(healthResponse{
+			Commit: environment.Version.Commit,
+		})
+	})
 	log.Info("Proxy starting on " + environment.Port)
 	log.Fatal(http.ListenAndServe(":"+environment.Port, nil))
 }
