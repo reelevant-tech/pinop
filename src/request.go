@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -35,7 +37,10 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				return
 			}
 			var body body
-			err := json.NewDecoder(req.Body).Decode(&body)
+			bodyBytes, _ := ioutil.ReadAll(req.Body)
+			req.Body.Close()
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+			err := json.Unmarshal(bodyBytes, &body)
 			if err != nil {
 				res.WriteHeader(400)
 				return

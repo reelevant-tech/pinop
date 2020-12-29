@@ -80,7 +80,7 @@ func TestProxy(t *testing.T) {
 	}()
 
 	cmd = exec.Command("bash", "-c", "go run ../src/*.go")
-	cmd.Env = append(os.Environ(), "PINOT_CONTROLLER_URL=http://127.0.0.1:3001")
+	cmd.Env = append(os.Environ(), "PINOT_CONTROLLER_URL=http://127.0.0.1:3001", "PORT=4000")
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
@@ -92,21 +92,21 @@ func TestProxy(t *testing.T) {
 	time.Sleep(500 * time.Millisecond) // wait http server to start
 
 	// proxy any request
-	resp, err := http.Get("http://127.0.0.1:3000/v2/brokers/tenants")
+	resp, err := http.Get("http://127.0.0.1:4000/v2/brokers/tenants")
 	if err != nil {
 		t.Fatalf("failed to proxy request to tenants with: %v", err)
 	}
 	AssertEqual(t, resp.StatusCode, 200)
-	resp, err = http.Get("http://127.0.0.1:3000/v2/foo")
+	resp, err = http.Get("http://127.0.0.1:4000/v2/foo")
 	if err != nil {
 		t.Fatalf("failed to proxy request to tenants with: %v", err)
 	}
+	t.Log(out.String())
 	AssertEqual(t, resp.StatusCode, 403)
 
 	// proxy sql queries
-	resp, err = http.Post("http://127.0.0.1:3000/query/sql", "application/json", bytes.NewBuffer([]byte(`{}`)))
+	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{}`)))
 	AssertEqual(t, resp.StatusCode, 400)
-	resp, err = http.Post("http://127.0.0.1:3000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM foo", "tenant": "DefaultTenant"}`)))
-	t.Log(out.String())
+	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM foo", "tenant": "DefaultTenant"}`)))
 	AssertEqual(t, resp.StatusCode, 401) // broker reach
 }
