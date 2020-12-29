@@ -1,0 +1,13 @@
+archives:
+  - format: gz
+    files:
+    - none*
+builds:
+  - dir: src
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
