@@ -12,32 +12,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type brokerTenant struct {
+type broker struct {
 	Host string `json:"host"`
 	Port int    `json:"port"`
 }
 
-type proxyTenants map[string]*httputil.ReverseProxy
+type proxyTables map[string]*httputil.ReverseProxy
 
-var proxyForTenants proxyTenants = nil
+var proxyForTables proxyTables = nil
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-func buildTenantsFromController(pinotControllerURL string) {
-	resp, err := httpClient.Get(pinotControllerURL + "/v2/brokers/tenants")
+func buildProxyForTablesFromController(pinotControllerURL string) {
+	resp, err := httpClient.Get(pinotControllerURL + "/v2/brokers/tables")
 	if err != nil {
-		log.WithError(err).Warn("Failed to refresh tenants")
+		log.WithError(err).Warn("Failed to refresh broker for tables")
 		return
 	}
 	defer resp.Body.Close()
-	var parsedBody map[string][]brokerTenant
+	var parsedBody map[string][]broker
 	err = json.NewDecoder(resp.Body).Decode(&parsedBody)
 	if err != nil {
-		log.WithError(err).Warn("Failed to refresh tenants")
+		log.WithError(err).Warn("Failed to refresh broker for tables")
 		return
 	}
-	proxyForTenants = proxyTenants{}
-	for key, brokerList := range parsedBody {
+	proxyForTables = proxyTables{}
+	for table, brokerList := range parsedBody {
 		// Create list of dialers to have keep-alive
 		dialers := make([]*net.Dialer, 0)
 		for range brokerList {
@@ -47,7 +47,7 @@ func buildTenantsFromController(pinotControllerURL string) {
 			}))
 		}
 		// Create proxy
-		proxyForTenants[key] = &httputil.ReverseProxy{
+		proxyForTables[table] = &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
 				r.URL.Host = "127.0.0.1" // placeholder, will be override
@@ -78,16 +78,16 @@ func buildTenantsFromController(pinotControllerURL string) {
 			},
 		}
 	}
-	log.Info("Tenants successfuly updated")
+	log.Info("List of brokers successfuly updated")
 }
 
-// ScheduleTenantRefresh refresh tenants list every `delay`
-func ScheduleTenantRefresh(pinotControllerURL string, delay time.Duration) chan bool {
+// ScheduleTableRefresh refresh broker list for each table every `delay`
+func ScheduleTableRefresh(pinotControllerURL string, delay time.Duration) chan bool {
 	stop := make(chan bool)
 
 	go func() {
 		for {
-			buildTenantsFromController(pinotControllerURL)
+			buildProxyForTablesFromController(pinotControllerURL)
 			select {
 			case <-time.After(delay):
 			case <-stop:

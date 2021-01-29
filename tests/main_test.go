@@ -54,10 +54,10 @@ type controllerHandler struct {
 }
 
 func (m *controllerHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	if req.URL.Path == "/v2/brokers/tenants" {
+	if req.URL.Path == "/v2/brokers/tables" {
 		res.WriteHeader(200)
 		// first host should fail
-		fmt.Fprintf(res, "{\"DefaultTenant\":[{\"host\":\"fail-lookup\",\"port\":3000},{\"host\":\"127.0.0.1\",\"port\":3002}]}")
+		fmt.Fprintf(res, "{\"foo\":[{\"host\":\"fail-lookup\",\"port\":3000},{\"host\":\"127.0.0.1\",\"port\":3002}]}")
 		return
 	}
 	res.WriteHeader(403)
@@ -92,14 +92,14 @@ func TestProxy(t *testing.T) {
 	time.Sleep(500 * time.Millisecond) // wait http server to start
 
 	// proxy any request
-	resp, err := http.Get("http://127.0.0.1:4000/v2/brokers/tenants")
+	resp, err := http.Get("http://127.0.0.1:4000/v2/brokers/tables")
 	if err != nil {
-		t.Fatalf("failed to proxy request to tenants with: %v", err)
+		t.Fatalf("failed to proxy request to tables with: %v", err)
 	}
 	AssertEqual(t, resp.StatusCode, 200)
 	resp, err = http.Get("http://127.0.0.1:4000/v2/foo")
 	if err != nil {
-		t.Fatalf("failed to proxy request to tenants with: %v", err)
+		t.Fatalf("failed to proxy request to tables with: %v", err)
 	}
 	t.Log(out.String())
 	AssertEqual(t, resp.StatusCode, 403)
@@ -107,6 +107,6 @@ func TestProxy(t *testing.T) {
 	// proxy sql queries
 	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{}`)))
 	AssertEqual(t, resp.StatusCode, 400)
-	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM foo", "tenant": "DefaultTenant"}`)))
+	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM foo"}`)))
 	AssertEqual(t, resp.StatusCode, 401) // broker reach
 }

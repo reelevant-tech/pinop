@@ -50,7 +50,7 @@ func main() {
 	log.SetLevel(logLevel)
 
 	// Start refreshing tenants
-	ScheduleTenantRefresh(
+	ScheduleTableRefresh(
 		environment.Pinot.ControllerURL,
 		time.Duration(int64(environment.Pinot.TenantRefreshDelay)*int64(time.Millisecond))) // ms to ns
 
