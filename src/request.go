@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -31,7 +29,7 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 	return func(res http.ResponseWriter, req *http.Request) {
 		proxy := controllerProxy
 		if req.URL.Path == "/query/sql" { // We want to proxy to brokers for queries
-			if tenants == nil {
+			if proxyForTenants == nil {
 				log.WithError(err).Error("Unable to proxy request")
 				res.WriteHeader(503)
 				return
@@ -49,44 +47,12 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				res.WriteHeader(400)
 				return
 			}
-			brokerIndex := 0
-			brokerList := tenants[body.Tenant]
-			if brokerList == nil {
+			if proxyForTenants[body.Tenant] == nil {
 				log.WithField("tenant", body.Tenant).Error("Unable to find tenant for request")
 				res.WriteHeader(503)
 				return
 			}
-			proxy = &httputil.ReverseProxy{
-				Director: func(r *http.Request) {
-					r.URL.Scheme = "http"
-					r.URL.Host = "127.0.0.1" // placeholder, will be override
-					r.URL.Path = "/query/sql"
-				},
-				Transport: &http.Transport{
-					Dial: func(network, _ string) (net.Conn, error) {
-						var conn net.Conn
-						var err error
-						for brokerIndex < len(brokerList) { // Retry with every urls we have if connection failed
-							addr := brokerList[brokerIndex]
-							conn, err = (&net.Dialer{
-								Timeout:   30 * time.Second,
-								KeepAlive: 30 * time.Second,
-							}).Dial(network, addr)
-							brokerIndex++
-							if err == nil {
-								break
-							}
-							logMsg := log.WithField("addr", addr).WithError(err)
-							if brokerIndex < len(brokerList) {
-								logMsg.Warn("Failed to proxy request to broker, retrying")
-							} else {
-								logMsg.Warn("Failed to proxy request to broker after retries, send 500")
-							}
-						}
-						return conn, err
-					},
-				},
-			}
+			proxy = proxyForTenants[body.Tenant]
 		}
 		proxy.ErrorHandler = proxyErrorHandler
 		// Note that ServeHttp is non blocking & uses a go routine under the hood
