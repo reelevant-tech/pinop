@@ -55,6 +55,10 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				return
 			}
 			if proxyForTables[tableName] == nil {
+				log.WithField("table", tableName).Error("Unable to find table broker for request, trying to refresh broker list")
+				buildProxyForTablesFromController(pinotControllerURL)
+			}
+			if proxyForTables[tableName] == nil {
 				log.WithField("table", tableName).Error("Unable to find table broker for request")
 				res.WriteHeader(503)
 				return

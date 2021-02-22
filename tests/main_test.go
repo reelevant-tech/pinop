@@ -109,4 +109,6 @@ func TestProxy(t *testing.T) {
 	AssertEqual(t, resp.StatusCode, 400)
 	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM foo"}`)))
 	AssertEqual(t, resp.StatusCode, 401) // broker reach
+	resp, err = http.Post("http://127.0.0.1:4000/query/sql", "application/json", bytes.NewBuffer([]byte(`{"sql": "SELECT * FROM bar"}`)))
+	AssertEqual(t, resp.StatusCode, 503) // broker not found
 }
