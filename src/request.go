@@ -30,11 +30,6 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 	return func(res http.ResponseWriter, req *http.Request) {
 		proxy := controllerProxy
 		if req.URL.Path == "/query/sql" { // We want to proxy to brokers for queries
-			if proxyForTables == nil {
-				log.WithError(err).Error("Unable to proxy request")
-				res.WriteHeader(503)
-				return
-			}
 			var body body
 			bodyBytes, _ := ioutil.ReadAll(req.Body)
 			req.Body.Close()
@@ -54,7 +49,7 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				res.WriteHeader(400)
 				return
 			}
-			if proxyForTables[tableName] == nil {
+			if proxyForTables == nil || proxyForTables[tableName] == nil {
 				log.WithField("table", tableName).Error("Unable to find table broker for request, trying to refresh broker list")
 				buildProxyForTablesFromController(pinotControllerURL)
 			}
