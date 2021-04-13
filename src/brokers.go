@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,9 +18,7 @@ type broker struct {
 	Port int    `json:"port"`
 }
 
-type proxyTables map[string]*httputil.ReverseProxy
-
-var proxyForTables proxyTables = nil
+var proxyForTables sync.Map
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
@@ -36,7 +35,6 @@ func buildProxyForTablesFromController(pinotControllerURL string) {
 		log.WithError(err).Warn("Failed to refresh broker for tables")
 		return
 	}
-	proxyForTables = proxyTables{}
 	for table, brokerList := range parsedBody {
 		// Create list of dialers to have keep-alive
 		dialers := make([]*net.Dialer, 0)
@@ -47,7 +45,7 @@ func buildProxyForTablesFromController(pinotControllerURL string) {
 			}))
 		}
 		// Create proxy
-		proxyForTables[table] = &httputil.ReverseProxy{
+		proxyForTables.Store(table, &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
 				r.URL.Host = "127.0.0.1" // placeholder, will be override
@@ -76,7 +74,7 @@ func buildProxyForTablesFromController(pinotControllerURL string) {
 					return conn, err
 				},
 			},
-		}
+		})
 	}
 	log.Info("List of brokers successfuly updated")
 }

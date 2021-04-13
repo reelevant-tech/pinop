@@ -49,16 +49,18 @@ func RequestHandler(pinotControllerURL string) func(http.ResponseWriter, *http.R
 				res.WriteHeader(400)
 				return
 			}
-			if proxyForTables == nil || proxyForTables[tableName] == nil {
+			proxyForTable, found := proxyForTables.Load(tableName)
+			if found == false {
 				log.WithField("table", tableName).Error("Unable to find table broker for request, trying to refresh broker list")
 				buildProxyForTablesFromController(pinotControllerURL)
 			}
-			if proxyForTables[tableName] == nil {
+			proxyForTable, found = proxyForTables.Load(tableName)
+			if found == false {
 				log.WithField("table", tableName).Error("Unable to find table broker for request")
 				res.WriteHeader(503)
 				return
 			}
-			proxy = proxyForTables[tableName]
+			proxy = proxyForTable.(*httputil.ReverseProxy)
 		}
 		proxy.ErrorHandler = proxyErrorHandler
 		// Note that ServeHttp is non blocking & uses a go routine under the hood
